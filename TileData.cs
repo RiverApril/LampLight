@@ -1,0 +1,4 @@
+﻿namespace LampLight {
+	class TileData {
+	}
+}
