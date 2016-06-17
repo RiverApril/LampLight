@@ -7,11 +7,18 @@ using Microsoft.Xna.Framework.Input;
 
 namespace LampLight {
 
-	public class Game1 : Game {
-		GraphicsDeviceManager graphics;
-		SpriteBatch spriteBatch;
+	public class LampLightGame : Game {
+	
+		internal GraphicsDeviceManager graphics;
+		internal SpriteBatch spriteBatch;
 
-		public Game1() {
+		internal World loadedWorld = null;
+
+		internal Texture2D textureTileAtlas;
+		
+
+
+		public LampLightGame() {
 			graphics = new GraphicsDeviceManager(this);
 			Content.RootDirectory = "Content";
 		}
@@ -19,21 +26,27 @@ namespace LampLight {
 		protected override void Initialize() {
 			// TODO: Add your initialization logic here
 
+			Tile.initalize();
+
+			loadedWorld = new World();
+			Random rand = new Random();
+			loadedWorld.generate(ref rand);
+
 			base.Initialize();
 		}
 		
 		protected override void LoadContent() {
 			// Create a new SpriteBatch, which can be used to draw textures.
 			spriteBatch = new SpriteBatch(GraphicsDevice);
+			
+			using (var stream = TitleContainer.OpenStream ("tileAtlas.png")) {
+		        textureTileAtlas = Texture2D.FromStream(this.GraphicsDevice, stream);
+		
+		    }
 
 			//TODO: use this.Content to load your game content here 
 		}
-
-		/// <summary>
-		/// Allows the game to run logic such as updating the world,
-		/// checking for collisions, gathering input, and playing audio.
-		/// </summary>
-		/// <param name="gameTime">Provides a snapshot of timing values.</param>
+		
 		protected override void Update(GameTime gameTime) {
 			// For Mobile devices, this logic will close the Game when the Back button is pressed
 			// Exit() is obsolete on iOS
@@ -42,7 +55,7 @@ namespace LampLight {
 				Exit();
 #endif
 
-			// TODO: Add your update logic here
+			loadedWorld.update(this);
 
 			base.Update(gameTime);
 		}
@@ -51,7 +64,11 @@ namespace LampLight {
 		protected override void Draw(GameTime gameTime) {
 			graphics.GraphicsDevice.Clear(Color.CornflowerBlue);
 
-			//TODO: Add your drawing code here
+			spriteBatch.Begin(SpriteSortMode.BackToFront);
+
+			loadedWorld.draw(this);
+			
+			spriteBatch.End();
 
 			base.Draw(gameTime);
 		}

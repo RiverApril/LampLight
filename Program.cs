@@ -19,10 +19,10 @@ namespace LampLight {
 	static class Program
 #endif
 	{
-		private static Game1 game;
+		private static LampLightGame game;
 
 		internal static void RunGame() {
-			game = new Game1();
+			game = new LampLightGame();
 			game.Run();
 #if !__IOS__ && !__TVOS__
 			game.Dispose();
