@@ -8,14 +8,42 @@ namespace LampLight {
 		public const byte ORIENT_HALF_LEFT = 3;
 		public const byte ORIENT_HALF_RIGHT = 4;
 
-		public byte tileIndex = 0;
-		public byte metadata = 0;
-		public byte orientation = ORIENT_FULL;
+		public const byte UPDATE_NONE = 0;
+		public const byte UPDATE_TILE = 1 << 0;
+		public const byte UPDATE_LIGHT = 1 << 1;
 
-		internal void set(byte index, byte meta = 0, byte orient = ORIENT_FULL) {
-			this.tileIndex = index;
-			this.metadata = meta;
-			this.orientation = orient;
+		public byte fIndex = 0;
+		public byte fMetadata = 0;
+		public byte fOrientation = ORIENT_FULL;
+		public byte bIndex = 0;
+		public byte light = 0;
+		public byte nextLight = 0;
+		public byte updateFlags = UPDATE_NONE;
+
+		internal bool fTransparent() {
+			return fOrientation != ORIENT_FULL || Tile.tiles[fIndex].transparent;
+		}
+
+		internal bool bTransparent() {
+			return Tile.tiles[bIndex].transparent;
+		}
+
+		internal bool seeSky() {
+			return fTransparent() && bTransparent();
+		}
+
+		internal void setF(byte index, byte meta = 0, byte orient = ORIENT_FULL) {
+			this.fIndex = index;
+			this.fMetadata = meta;
+			this.fOrientation = orient;
+			this.updateFlags |= UPDATE_TILE;
+			this.updateFlags |= UPDATE_LIGHT;
+		}
+
+		internal void setB(byte index) {
+			this.bIndex = index;
+			this.updateFlags |= UPDATE_TILE;
+			this.updateFlags |= UPDATE_LIGHT;
 		}
 	}
 }

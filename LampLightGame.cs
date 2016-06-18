@@ -13,8 +13,17 @@ namespace LampLight {
 		internal SpriteBatch spriteBatch;
 
 		internal World loadedWorld = null;
-
+		
+		internal SpriteFont gameFont;
 		internal Texture2D textureTileAtlas;
+
+
+		float fps = 0f;
+		const int SAMPLE_QTY = 50;
+		int[] samples = new int[SAMPLE_QTY];
+		int currentSample = 0;
+		int ticksAggregate = 0;
+		int secondSinceStart = 0;
 		
 
 
@@ -24,49 +33,75 @@ namespace LampLight {
 		}
 		
 		protected override void Initialize() {
-			// TODO: Add your initialization logic here
+			base.Initialize();
 
+			this.IsMouseVisible = true;
+			graphics.SynchronizeWithVerticalRetrace = false;
+			TargetElapsedTime = new TimeSpan(TimeSpan.TicksPerSecond / 60);
+			
 			Tile.initalize();
 
 			loadedWorld = new World();
 			Random rand = new Random();
 			loadedWorld.generate(ref rand);
-
-			base.Initialize();
 		}
 		
 		protected override void LoadContent() {
 			// Create a new SpriteBatch, which can be used to draw textures.
 			spriteBatch = new SpriteBatch(GraphicsDevice);
 			
-			using (var stream = TitleContainer.OpenStream ("tileAtlas.png")) {
-		        textureTileAtlas = Texture2D.FromStream(this.GraphicsDevice, stream);
-		
-		    }
+			textureTileAtlas = this.Content.Load<Texture2D>("tileAtlas");
+			gameFont = this.Content.Load<SpriteFont>("gameFont");
 
 			//TODO: use this.Content to load your game content here 
 		}
 		
+		protected override void Dispose(bool disposing) {
+			Console.WriteLine("exiting...");
+			loadedWorld.running = false;
+			base.Dispose(disposing);
+		}
+		
 		protected override void Update(GameTime gameTime) {
-			// For Mobile devices, this logic will close the Game when the Back button is pressed
-			// Exit() is obsolete on iOS
-#if !__IOS__ && !__TVOS__
 			if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
 				Exit();
-#endif
 
 			loadedWorld.update(this);
 
 			base.Update(gameTime);
 		}
+
+		private int sumArray(int[] array) {
+			int val = 0;
+			for (int i = 0; i < array.Length;i++) {
+				val += array[i];
+			}
+			return val;
+		}
 		
 		
 		protected override void Draw(GameTime gameTime) {
+			//FPS calc:
+			samples[currentSample++] = (int)gameTime.ElapsedGameTime.Ticks;
+			ticksAggregate += (int)gameTime.ElapsedGameTime.Ticks;
+			if (ticksAggregate > TimeSpan.TicksPerSecond) {
+				ticksAggregate -= (int)TimeSpan.TicksPerSecond;
+				secondSinceStart++;
+			}
+			if (currentSample == SAMPLE_QTY) {
+				float averageFrameTime = (float)sumArray(samples) / SAMPLE_QTY;
+				fps = TimeSpan.TicksPerSecond / averageFrameTime;
+				currentSample = 0;
+			}
+		
+			//
 			graphics.GraphicsDevice.Clear(Color.CornflowerBlue);
 
-			spriteBatch.Begin(SpriteSortMode.BackToFront);
+			spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
 
 			loadedWorld.draw(this);
+
+			spriteBatch.DrawString(gameFont, string.Format("FPS: {0}", fps.ToString("00")), new Vector2(0, 0), Color.White);
 			
 			spriteBatch.End();
 
