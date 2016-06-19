@@ -4,12 +4,12 @@ using Microsoft.Xna.Framework;
 
 namespace LampLight {
 	class Tile {
-		public const int TILE_TEX_V_SEP = 9;
-		public const int TILE_TEX_H_SEP = 8;
+		public const int TILE_TEX_V_SEP = 14;
+		public const int TILE_TEX_H_SEP = 12;
 		public const int TILE_TEX_V_SEP_HALF = TILE_TEX_V_SEP/2;
 		public const int TILE_TEX_H_SEP_HALF = TILE_TEX_H_SEP/2;
-		public const int TILE_V_SEP = 7;
-		public const int TILE_H_SEP = 8;
+		public const int TILE_V_SEP = 11;
+		public const int TILE_H_SEP = 12;
 
 		internal static Dictionary<byte, Tile> tiles = new Dictionary<byte, Tile>();
 	
@@ -36,7 +36,7 @@ namespace LampLight {
 			tileAir    = new Tile(a++, "Air"    , false, null         , true , DENSITY_AIRLIKE  , 0  , TILE_FLAG_REPLACEABLE);
 			tileStone  = new Tile(a++, "Stone"  , true , texRect(1, 0));
 			tileDirt   = new Tile(a++, "Dirt"   , true , texRect(2, 0));
-			tileLamp   = new Tile(a++, "Lamp"   , true , texRect(3, 0), false, DENSITY_GLASSLIKE, 255);
+			tileLamp   = new Tile(a++, "Lamp"   , true , texRect(3, 0), true, DENSITY_GLASSLIKE, 255);
 			tileGlass  = new Tile(a++, "Glass"  , true , texRect(4, 0), true , DENSITY_GLASSLIKE);
 			tileGravel = new Tile(a++, "Gravel" , true , texRect(5, 0), false, DENSITY_SOLID    , 0  , TILE_FLAG_GRAVITY);
 		}

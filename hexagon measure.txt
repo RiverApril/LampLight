@@ -1,0 +1,4 @@
+Short Diameter: 1
+Long Diameter: 1.154
+Side: .578
+

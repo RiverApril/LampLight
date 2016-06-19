@@ -277,7 +277,7 @@ namespace LampLight {
 				int xc = rand.Next() % width;
 				int yc = rand.Next() % height;
 
-				int caveSize = 5 + rand.Next(100);
+				int caveSize = 5 + rand.Next(40);
 
 				tileSpread(xc, yc, caveSize, delegate (int x, int y, int i) {
 					if (map[x, y].fIndex == Tile.tileGravel.index) {
@@ -296,7 +296,7 @@ namespace LampLight {
 				int xc = rand.Next() % width;
 				int yc = rand.Next() % height;
 
-				int caveSize = 5 + rand.Next(100);
+				int caveSize = 5 + rand.Next(200);
 
 				tileSpread(xc, yc, caveSize, delegate (int x, int y, int i) {
 					if (map[x, y].fIndex == Tile.tileAir.index) {
@@ -539,6 +539,8 @@ namespace LampLight {
 			game.spriteBatch.DrawString(game.gameFont, string.Format("World: {0}, {1}", wp.X, wp.Y), v, Color.White);
 			v.Y += 12;
 			game.spriteBatch.DrawString(game.gameFont, string.Format("Tile: {0}, {1}", tp.X, tp.Y), v, Color.White);
+			v.Y += 12;
+			game.spriteBatch.DrawString(game.gameFont, string.Format("LightUpdates: {0}", lightUpdates.Count), v, Color.White);
 		}
 
 	}

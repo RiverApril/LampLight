@@ -36,7 +36,7 @@ namespace LampLight {
 			base.Initialize();
 
 			//this.IsMouseVisible = true;
-			graphics.SynchronizeWithVerticalRetrace = false;
+			graphics.SynchronizeWithVerticalRetrace = true;
 			TargetElapsedTime = new TimeSpan(TimeSpan.TicksPerSecond / 60);
 
 			Mouse.WindowHandle = Window.Handle;
