@@ -35,15 +35,16 @@ namespace LampLight {
 		protected override void Initialize() {
 			base.Initialize();
 
-			this.IsMouseVisible = true;
+			//this.IsMouseVisible = true;
 			graphics.SynchronizeWithVerticalRetrace = false;
 			TargetElapsedTime = new TimeSpan(TimeSpan.TicksPerSecond / 60);
+
+			Mouse.WindowHandle = Window.Handle;
 			
 			Tile.initalize();
 
-			loadedWorld = new World();
-			Random rand = new Random();
-			loadedWorld.generate(ref rand);
+			loadedWorld = new World(this);
+			loadedWorld.generate();
 		}
 		
 		protected override void LoadContent() {
@@ -66,7 +67,7 @@ namespace LampLight {
 			if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
 				Exit();
 
-			loadedWorld.update(this);
+			loadedWorld.update();
 
 			base.Update(gameTime);
 		}
@@ -95,11 +96,11 @@ namespace LampLight {
 			}
 		
 			//
-			graphics.GraphicsDevice.Clear(Color.CornflowerBlue);
+			graphics.GraphicsDevice.Clear(Color.Black);
 
-			spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
+			spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied);
 
-			loadedWorld.draw(this);
+			loadedWorld.draw();
 
 			spriteBatch.DrawString(gameFont, string.Format("FPS: {0}", fps.ToString("00")), new Vector2(0, 0), Color.White);
 			

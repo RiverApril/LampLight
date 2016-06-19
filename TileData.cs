@@ -11,6 +11,8 @@ namespace LampLight {
 		public const byte UPDATE_NONE = 0;
 		public const byte UPDATE_TILE = 1 << 0;
 		public const byte UPDATE_LIGHT = 1 << 1;
+		public const byte UPDATE_INDIRECT = 1 << 2;
+		public const byte UPDATE_INDIRECT_NEXT = 1 << 3;
 
 		public byte fIndex = 0;
 		public byte fMetadata = 0;
@@ -28,7 +30,7 @@ namespace LampLight {
 			return Tile.tiles[bIndex].transparent;
 		}
 
-		internal bool seeSky() {
+		internal bool bothTransparent() {
 			return fTransparent() && bTransparent();
 		}
 

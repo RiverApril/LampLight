@@ -14,72 +14,154 @@ namespace LampLight {
 		public double viewY = 1;
 
 		private TileData[,] map;
+		
+		private const int LIGHT_CHUNK_WIDTH = (256 / Tile.DENSITY_MIN);
+		private const int LIGHT_CHUNK_HEIGHT = (256 / Tile.DENSITY_MIN);
+
+		private int LIGHT_CHUNK_HOR_QTY;
+		private int LIGHT_CHUNK_VER_QTY;
+
+		private int[] nineChunkGrid;
 
 		Thread lightingThread;
-		private List<Point> lightSources = new List<Point>();
+		private List<List<Point>> lightSources = new List<List<Point>>();
 		private List<Point> lightUpdates = new List<Point>();
 
 		public bool running = false;
 
+		public bool debugButtonDown = false;
+
+		Random rand = new Random();
+
+		LampLightGame game;
+
+
 		
 
-		public World() {
+		public World(LampLightGame game) {
+
+			this.game = game;
 
 			running = true;
+			
+			width = 1024;
+			height = 1024;
+
+			LIGHT_CHUNK_HOR_QTY = height / LIGHT_CHUNK_WIDTH;
+			LIGHT_CHUNK_VER_QTY = width / LIGHT_CHUNK_HEIGHT;
+
+			nineChunkGrid = new int[9] {
+			 -LIGHT_CHUNK_HOR_QTY-1, -LIGHT_CHUNK_HOR_QTY, -LIGHT_CHUNK_HOR_QTY+1
+			, -1				   , 0					 , 1
+			, LIGHT_CHUNK_HOR_QTY-1, LIGHT_CHUNK_HOR_QTY, LIGHT_CHUNK_HOR_QTY+1};
+			
+			for (int y = 0; y < height; y+=LIGHT_CHUNK_WIDTH) {
+				for (int x = 0; x < width; x+=LIGHT_CHUNK_HEIGHT) {
+					lightSources.Add(new List<Point>());
+				}
+			}
 
 			lightingThread = new Thread(new ThreadStart(lightingFunction));
 			lightingThread.Start();
-
 		}
 
 		public void lightingFunction() {
 			while (running) {
-				while (lightUpdates.Count > 0 && running) {
-					//Console.WriteLine("Light");
+				if(lightUpdates.Count > 0) {
 					Point p = lightUpdates[0];
+					//Console.WriteLine("Light");
 					lightUpdates.Remove(p);
 
-					int ym = p.Y + 255;
-					int xw;
-					int xm;
+					const int range = (256 / Tile.DENSITY_MIN);
+					const int range2 = 2 * range;
 
-					for (int y = Math.Max(p.Y-255, 0); y <= Math.Min(ym, height-1); y++) {
-						xw = Math.Abs(y-p.Y) + 128;
-						xm = p.X + xw;
-						for (int x = Math.Max(p.X-xw, 0); x <= Math.Min(xm, width-1); x++) {
-							map[x, y].nextLight = 0;
+					int ym, xw, xm;
+
+					int lsi = ((p.Y / LIGHT_CHUNK_VER_QTY) * (height / LIGHT_CHUNK_HEIGHT)) + (p.X / LIGHT_CHUNK_HOR_QTY);
+
+					for (int j = 0; j < 9; j++) {
+						int lsii = nineChunkGrid[j] + lsi;
+						if (lsii < 0 || lsii > lightSources.Count) {
+							continue;
 						}
-					}
-
-					for (int i = 0; i < lightSources.Count && running; i++) {
-						Point lp = lightSources[i];
-						int ld = hexDistance(lp.X, lp.Y, p.X, p.Y);
-						if (ld <= 511) {
-							TileData data = map[lp.X, lp.Y];
-							Tile tileF = Tile.tiles[data.fIndex];
-							Tile tileB = Tile.tiles[data.bIndex];
-							byte le = 0;
-							if (tileF.lightEmission > 0) {
-								le = tileF.lightEmission;
-							}
-							if (data.fTransparent()) {
-								if (tileB.lightEmission > 0) {
-									le = Math.Max(le, tileB.lightEmission);
+						for (int i = 0; i < lightSources[lsii].Count && running; i++) {
+							Point lp = lightSources[lsii][i];
+							int ld = hexDistance(lp.X, lp.Y, p.X, p.Y);
+							if (ld <= range) {
+								ym = lp.Y + range;
+								for (int y = Math.Max(lp.Y - range, 0); y <= Math.Min(ym, height - 1); y++) {
+									xw = (Math.Abs(y - lp.Y) / 2) + range;
+									xm = lp.X + xw;
+									for (int x = Math.Max(p.X - xw, 0); x <= Math.Min(xm, width - 1); x++) {
+										map[x, y].light = map[x, y].nextLight;
+									}
 								}
+								prespreadLight(lp.X, lp.Y);
 							}
-							spreadLight(lp.X, lp.Y, le);
 						}
 					}
-					
-					for (int y = Math.Max(p.Y-255, 0); y <= Math.Min(ym, height-1); y++) {
-						xw = Math.Abs(y-p.Y) + 128;
+
+					ym = p.Y + range2;
+
+					for (int y = Math.Max(p.Y - range2, 0); y <= Math.Min(ym, height - 1); y++) {
+						xw = (Math.Abs(y - p.Y) / 2) + range2;
 						xm = p.X + xw;
-						for (int x = Math.Max(p.X-xw, 0); x <= Math.Min(xm, width-1); x++) {
+						for (int x = Math.Max(p.X - xw, 0); x <= Math.Min(xm, width - 1); x++) {
 							map[x, y].light = map[x, y].nextLight;
 						}
 					}
-					
-					Console.WriteLine("Updated Light at {0}, {1}", p.X, p.Y);
+
+					//Console.WriteLine("Updated Light at {0}, {1}", p.X, p.Y);
+				
+				}
+			}
+		}
+
+		/*public void worldToTile(int wx, int wy, out int tx, out int ty) {
+
+		}*/
+
+		public void screenToWorld(int sx, int sy, out int wx, out int wy) {
+			wx = sx + (int)(viewX * Tile.TILE_H_SEP);
+			wy = sy + (int)(viewY * Tile.TILE_V_SEP);
+		}
+
+		public void screenToTile(int sx, int sy, out int tx, out int ty) {
+			ty = (int)(((sy - Tile.TILE_TEX_V_SEP_HALF) / Tile.TILE_V_SEP) + viewY);
+			tx = (int)(((sx) / Tile.TILE_H_SEP) + ((ty % 2==0)?-0.5:0.5) + viewX);
+		}
+
+		public void tileToScreen(int tx, int ty, out int sx, out int sy) {
+			sx = (int)((tx-viewX+((ty % 2==0)?0.5:0)) * Tile.TILE_H_SEP);
+			sy = (int)((ty - viewY) * Tile.TILE_V_SEP);
+		}
+
+		void prespreadLight(int x, int y) {
+			TileData data = map[x, y];
+			Tile tileF = Tile.tiles[data.fIndex];
+			Tile tileB = Tile.tiles[data.bIndex];
+			byte le = 0;
+			if (tileF.lightEmission > 0) {
+				le = tileF.lightEmission;
+			}
+			if (data.fTransparent()) {
+				if (tileB.lightEmission > 0) {
+					le = Math.Max(le, tileB.lightEmission);
+				}
+			}
+			spreadLight(x, y, le);
+		}
+
+		private void precalcLight() {
+			for (int x = 0; x < width; x++) {
+				for (int y = 0; y < height; y++) {
+					updateLightSource(x, y);
+				}
+			}
+			for (int x = 0; x < width; x++) {
+				for (int y = 0; y < height; y++) {
+					prespreadLight(x, y);
+					map[x, y].updateFlags -= TileData.UPDATE_LIGHT;
 				}
 			}
 		}
@@ -98,17 +180,11 @@ namespace LampLight {
 				} else {
 					light -= d;
 				}
-				if (x > 0) {
+				if (x > 0 && x < width-1 && y > 0 && y < height-1) {
 					spreadLight(x-1, y, light);
-				}
-				if (x < width-1) {
 					spreadLight(x+1, y, light);
-				}
-				if (y > 0) {
 					spreadLight(x, y-1, light);
 					spreadLight(x+(y % 2 == 0 ? 1 : -1), y-1, light);
-				}
-				if (y < height-1) {
 					spreadLight(x, y+1, light);
 					spreadLight(x+(y % 2 == 0 ? 1 : -1), y+1, light);
 				}
@@ -125,41 +201,164 @@ namespace LampLight {
 			return Math.Max(xx2 - xx1, Math.Max(yy2 - yy1, zz2 - zz1));
 		}
 
-		private void lightUpdate(int x, int y) {
+		private void updateLightSource(int x, int y) {
 			Point p = new Point(x, y);
 			TileData data = map[x, y];
 			Tile tileF = Tile.tiles[data.fIndex];
 			Tile tileB = Tile.tiles[data.bIndex];
+			int lsi = ((p.Y/LIGHT_CHUNK_VER_QTY) * (height / LIGHT_CHUNK_HEIGHT)) + (p.X/LIGHT_CHUNK_HOR_QTY);
 			if (tileF.lightEmission > 0 || (data.fTransparent() && tileB.lightEmission > 0)) {		
-				if (!lightSources.Contains(p)) {
-					lightSources.Add(p);
-					lightUpdates.Add(p);
+				if (!lightSources[lsi].Contains(p)) {
+					lightSources[lsi].Add(p);
 				}
 			} else {
-				if (lightSources.Contains(p)) {
-					lightSources.Remove(p);
-					lightUpdates.Add(p);
+				if (lightSources[lsi].Contains(p)) {
+					lightSources[lsi].Remove(p);
 				}
 			}
 		}
 
-		internal void generate(ref Random rand) {
-			width = 1000;
-			height = 1000;
+		private void lightUpdate(int x, int y) {
+			updateLightSource(x, y);
+			Point p = new Point(x, y);
+			if (!lightUpdates.Contains(p)) {
+				lightUpdates.Add(p);
+			}
+		}
+
+		void tileSpread(int x, int y, int i, Func<int, int, int, int> p) {
+			i = p(x, y, i);
+			if (i > 0) {
+				if (x > 0 && x < width-1 && y > 0 && y < height-1) {
+					tileSpread(x-1, y, i, p);
+					tileSpread(x+1, y, i, p);
+					tileSpread(x, y-1, i, p);
+					tileSpread(x+(y % 2 == 0 ? 1 : -1), y-1, i, p);
+					tileSpread(x, y+1, i, p);
+					tileSpread(x+(y % 2 == 0 ? 1 : -1), y+1, i, p);
+				}
+			}
+		}
+
+		internal void generate() {
 
 			map = new TileData[width, height];
 
 			for (int x = 0; x < width; x++) {
 				for (int y = 0; y < height; y++) {
 					map[x, y] = new TileData();
-					map[x, y].setF(rand.Next() % 2 == 0 ? Tile.tileStone.index : Tile.tileDirt.index, 0, TileData.ORIENT_FULL);
+					map[x, y].setF(Tile.tileStone.index);
 					map[x, y].setB(Tile.tileStone.index);
 				}
 			}
 
+			int dirtPatches = 1000;
+
+			for (int c = 0; c < dirtPatches; c++) {
+				int xc = rand.Next() % width;
+				int yc = rand.Next() % height;
+
+				int caveSize = 5 + rand.Next(100);
+
+				tileSpread(xc, yc, caveSize, delegate (int x, int y, int i) {
+					if (map[x, y].fIndex == Tile.tileDirt.index) {
+						return 0;
+					} else {
+						map[x, y].setF(Tile.tileDirt.index);
+						return i-((rand.Next()%3)+1);
+					}
+				});
+				
+			}
+
+			int gravelPatches = 1000;
+
+			for (int c = 0; c < gravelPatches; c++) {
+				int xc = rand.Next() % width;
+				int yc = rand.Next() % height;
+
+				int caveSize = 5 + rand.Next(100);
+
+				tileSpread(xc, yc, caveSize, delegate (int x, int y, int i) {
+					if (map[x, y].fIndex == Tile.tileGravel.index) {
+						return 0;
+					} else {
+						map[x, y].setF(Tile.tileGravel.index);
+						return i-((rand.Next()%3)+1);
+					}
+				});
+				
+			}
+
+			int caveCount = 1000;
+
+			for (int c = 0; c < caveCount; c++) {
+				int xc = rand.Next() % width;
+				int yc = rand.Next() % height;
+
+				int caveSize = 5 + rand.Next(100);
+
+				tileSpread(xc, yc, caveSize, delegate (int x, int y, int i) {
+					if (map[x, y].fIndex == Tile.tileAir.index) {
+						return 0;
+					} else {
+						map[x, y].setF(Tile.tileAir.index);
+						return i-((rand.Next()%3)+1);
+					}
+				});
+				
+			}
+
+			precalcLight();
+
 		}
 
-		internal void update(LampLightGame game) {
+		internal bool tileUpdate(int x, int y, bool direct, bool setup = false) {
+			if (direct && !setup && x > 0 && x < width-1 && y > 0 && y < height-1) {
+				map[x-1, y].updateFlags |= TileData.UPDATE_INDIRECT_NEXT;
+				map[x+1, y].updateFlags |= TileData.UPDATE_INDIRECT_NEXT;
+				map[x, y-1].updateFlags |= TileData.UPDATE_INDIRECT_NEXT;
+				map[x+(y % 2 == 0 ? 1 : -1), y-1].updateFlags |= TileData.UPDATE_INDIRECT_NEXT;
+				map[x, y+1].updateFlags |= TileData.UPDATE_INDIRECT_NEXT;
+				map[x+(y % 2 == 0 ? 1 : -1), y+1].updateFlags |= TileData.UPDATE_INDIRECT_NEXT;
+			}
+			TileData data = map[x, y];
+			Tile tileF = Tile.tiles[data.fIndex];
+			Tile tileB = Tile.tiles[data.bIndex];
+			bool l = rand.Next() % 2==0;
+			bool r = false;
+			if ((tileF.tileFlags & Tile.TILE_FLAG_GRAVITY) != 0) {
+				if (x > 0 && x < width - 1 && y < height - 1) {
+					if (l && (Tile.tiles[map[x, y+1].fIndex].tileFlags & Tile.TILE_FLAG_REPLACEABLE) != 0) {
+						map[x, y + 1].setF(data.fIndex, data.fMetadata, data.fOrientation);
+						map[x, y].setF(Tile.tileAir.index);
+						r = true;
+					}
+					if (!l && (Tile.tiles[map[x + (y % 2 == 0 ? 1 : -1), y+1].fIndex].tileFlags & Tile.TILE_FLAG_REPLACEABLE) != 0) {
+						map[x + (y % 2 == 0 ? 1 : -1), y + 1].setF(data.fIndex, data.fMetadata, data.fOrientation);
+						map[x, y].setF(Tile.tileAir.index);
+						r = true;
+					}
+				}
+			}
+			if ((tileB.tileFlags & Tile.TILE_FLAG_GRAVITY) != 0) {
+				if (x > 0 && x < width - 1 && y < height - 1) {
+					if (l && (Tile.tiles[map[x, y+1].bIndex].tileFlags & Tile.TILE_FLAG_REPLACEABLE) != 0) {
+						map[x, y + 1].setB(data.bIndex);
+						map[x, y].setB(Tile.tileAir.index);
+						r = true;
+					}
+					if (!l && (Tile.tiles[map[x + (y % 2 == 0 ? 1 : -1), y+1].bIndex].tileFlags & Tile.TILE_FLAG_REPLACEABLE) != 0) {
+						map[x + (y % 2 == 0 ? 1 : -1), y + 1].setB(data.bIndex);
+						map[x, y].setB(Tile.tileAir.index);
+						r = true;
+					}
+				}
+			}
+			return r;
+		}
+
+		internal void update() {
 			KeyboardState kState = Keyboard.GetState();
 			MouseState mState = Mouse.GetState();
 			
@@ -193,9 +392,10 @@ namespace LampLight {
 					viewY = height-viewH-2;
 				}
 			}
-			int mouseTileY = (int)(((mState.Y - Tile.TILE_TEX_V_SEP_HALF) / Tile.TILE_V_SEP) + viewY);
-			int mouseTileX = (int)(((mState.X) / Tile.TILE_H_SEP) + ((mouseTileY % 2==0)?-0.5:0.5) + viewX);
+			int mouseTileX, mouseTileY;
 
+			screenToTile(mState.X, mState.Y, out mouseTileX, out mouseTileY);
+			
 			//Console.WriteLine("Mouse tile: {0}, {1}", mouseTileX, mouseTileY);
 
 			if (mState.LeftButton == ButtonState.Pressed) {
@@ -203,12 +403,16 @@ namespace LampLight {
 				if (mouseTileX >= 0 && mouseTileX < width && mouseTileY >= 0 && mouseTileY < height) {
 					if (kState.IsKeyDown(Keys.L)) {
 						map[mouseTileX, mouseTileY].setF(Tile.tileLamp.index);
+					} else if (kState.IsKeyDown(Keys.G)) {
+						map[mouseTileX, mouseTileY].setF(Tile.tileGlass.index);
 					} else {
 						map[mouseTileX, mouseTileY].setF(Tile.tileAir.index);
 					}
 				}
 				
 			}
+
+			debugButtonDown = kState.IsKeyDown(Keys.OemTilde);
 			
 			
 			TileData data;
@@ -222,12 +426,22 @@ namespace LampLight {
 					if (data.updateFlags != TileData.UPDATE_NONE) {
 						if ((data.updateFlags & TileData.UPDATE_TILE) != 0) {
 							data.updateFlags -= TileData.UPDATE_TILE;
+							tileUpdate(x, y, true);
+						}
+						
+						if ((data.updateFlags & TileData.UPDATE_INDIRECT) != 0) {
+							data.updateFlags -= TileData.UPDATE_INDIRECT;
+							tileUpdate(x, y, false);
+						}
+						
+						if ((data.updateFlags & TileData.UPDATE_INDIRECT_NEXT) != 0) {
+							data.updateFlags -= TileData.UPDATE_INDIRECT_NEXT;
+							data.updateFlags |= TileData.UPDATE_INDIRECT;
 						}
 						
 						if ((data.updateFlags & TileData.UPDATE_LIGHT) != 0) {
 							data.updateFlags -= TileData.UPDATE_LIGHT;
 							lightUpdate(x, y);
-							//Console.WriteLine("fIndex: {0}", Tile.tiles[data.fIndex].name);
 						}
 					}
 
@@ -238,7 +452,7 @@ namespace LampLight {
 			
 		}
 
-		internal void draw(LampLightGame game) {
+		internal void draw() {
 			Rectangle src = new Rectangle();
 			Rectangle? srcq;
 			TileData data;
@@ -254,22 +468,26 @@ namespace LampLight {
 				for (int x = (int)viewX - 1; x < viewR + 2; x++) {
 					data = map[x, y];
 					tileF = Tile.tiles[data.fIndex];
-
-					color.R = data.light;
-					color.G = data.light;
-					color.B = data.light;
+					
+					dest.X = (int)((x-viewX+((y % 2==0)?0.5:0)) * Tile.TILE_H_SEP);
 
 					if (data.fTransparent()) {
 						tileB = Tile.tiles[data.bIndex];
 						if (tileB.textureRect != null) {
+							color.R = (byte)(data.light/2);
+							color.G = (byte)(data.light/2);
+							color.B = (byte)(data.light/2);
 							game.spriteBatch.Draw(game.textureTileAtlas, dest, tileB.textureRect, color);
 						}
 					}
 					srcq = tileF.textureRect;
+
+					color.R = data.light;
+					color.G = data.light;
+					color.B = data.light;
 					
 					if (srcq != null) {
 						src = srcq.Value;
-						dest.X = (int)((x-viewX+((y % 2==0)?0.5:0)) * Tile.TILE_H_SEP);
 
 						
 						switch (data.fOrientation) {
@@ -304,7 +522,24 @@ namespace LampLight {
 					}
 				}
 			}
+			
+			MouseState mState = Mouse.GetState();
+
+			Point wp = new Point();
+			screenToWorld(mState.X, mState.Y, out wp.X, out wp.Y);
+			Point tp = new Point();
+			screenToTile(mState.X, mState.Y, out tp.X, out tp.Y);
+			Point tsp = new Point();
+			tileToScreen(tp.X, tp.Y, out tsp.X, out tsp.Y);
+
+			game.spriteBatch.Draw(game.textureTileAtlas, tsp.ToVector2(), Tile.selectTileRect, Color.White);
+
+			Vector2 v = mState.Position.ToVector2();
+
+			game.spriteBatch.DrawString(game.gameFont, string.Format("World: {0}, {1}", wp.X, wp.Y), v, Color.White);
+			v.Y += 12;
+			game.spriteBatch.DrawString(game.gameFont, string.Format("Tile: {0}, {1}", tp.X, tp.Y), v, Color.White);
 		}
 
-}
+	}
 }
