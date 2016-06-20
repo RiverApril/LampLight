@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 
 namespace LampLight {
-	class World {
+	public class World {
 
 		public int width { get; private set; }
 		public int height { get; private set; }
@@ -27,6 +27,10 @@ namespace LampLight {
 		private List<List<Point>> lightSources = new List<List<Point>>();
 		private List<Point> lightUpdates = new List<Point>();
 
+		private Dictionary<int, Entity> entities = new Dictionary<int, Entity>();
+		private List<Entity> entitiesToAdd = new List<Entity>();
+		private List<int> entitiesToRemove = new List<int>();
+
 		public bool running = false;
 
 		public bool debugButtonDown = false;
@@ -35,7 +39,10 @@ namespace LampLight {
 
 		LampLightGame game;
 
+		KeyboardState kState;
+		MouseState mState;
 
+		int nextUid = 1;
 		
 
 		public World(LampLightGame game) {
@@ -79,30 +86,51 @@ namespace LampLight {
 
 					int lsi = ((p.Y / LIGHT_CHUNK_VER_QTY) * (height / LIGHT_CHUNK_HEIGHT)) + (p.X / LIGHT_CHUNK_HOR_QTY);
 
+					ym = p.Y + range;
+					for (int y = Math.Max(p.Y - range, 0); y <= Math.Min(ym, height - 1); y++) {
+						xw = (Math.Abs(y - p.Y) / 2) + range;
+						xm = p.X + xw;
+						for (int x = Math.Max(p.X - xw, 0); x <= Math.Min(xm, width - 1); x++) {
+							map[x, y].nextLight = 0;
+						}
+					}
+
+					for(int j = 0; j < 9; j++) {
+						int lsii = nineChunkGrid[j] + lsi;
+						if(lsii < 0 || lsii > lightSources.Count) {
+							continue;
+						}
+						for(int i = 0; i < lightSources[lsii].Count && running; i++) {
+							Point lp = lightSources[lsii][i];
+							int ld = hexDistance(lp.X, lp.Y, p.X, p.Y);
+							if(ld <= range) {
+								ym = lp.Y + range;
+								for(int y = Math.Max(lp.Y - range, 0); y <= Math.Min(ym, height - 1); y++) {
+									xw = (Math.Abs(y - lp.Y) / 2) + range;
+									xm = lp.X + xw;
+									for(int x = Math.Max(p.X - xw, 0); x <= Math.Min(xm, width - 1); x++) {
+										map[x, y].nextLight = 0;
+									}
+								}
+							}
+						}
+					}
 					for (int j = 0; j < 9; j++) {
 						int lsii = nineChunkGrid[j] + lsi;
 						if (lsii < 0 || lsii > lightSources.Count) {
 							continue;
 						}
-						for (int i = 0; i < lightSources[lsii].Count && running; i++) {
+						for(int i = 0; i < lightSources[lsii].Count && running; i++) {
 							Point lp = lightSources[lsii][i];
 							int ld = hexDistance(lp.X, lp.Y, p.X, p.Y);
-							if (ld <= range) {
-								ym = lp.Y + range;
-								for (int y = Math.Max(lp.Y - range, 0); y <= Math.Min(ym, height - 1); y++) {
-									xw = (Math.Abs(y - lp.Y) / 2) + range;
-									xm = lp.X + xw;
-									for (int x = Math.Max(p.X - xw, 0); x <= Math.Min(xm, width - 1); x++) {
-										map[x, y].light = map[x, y].nextLight;
-									}
-								}
+							if(ld <= range) {
 								prespreadLight(lp.X, lp.Y);
 							}
 						}
+
 					}
 
 					ym = p.Y + range2;
-
 					for (int y = Math.Max(p.Y - range2, 0); y <= Math.Min(ym, height - 1); y++) {
 						xw = (Math.Abs(y - p.Y) / 2) + range2;
 						xm = p.X + xw;
@@ -358,9 +386,9 @@ namespace LampLight {
 			return r;
 		}
 
-		internal void update() {
-			KeyboardState kState = Keyboard.GetState();
-			MouseState mState = Mouse.GetState();
+		internal void update(GameTime gameTime) {
+			kState = Keyboard.GetState();
+			mState = Mouse.GetState();
 			
 			int viewW = game.Window.ClientBounds.Width / Tile.TILE_H_SEP;
 			int viewH = game.Window.ClientBounds.Height / Tile.TILE_V_SEP;
@@ -447,12 +475,28 @@ namespace LampLight {
 
 				}
 			}
+
+
+			while(entitiesToAdd.Count > 0){
+				entitiesToAdd[0].initalUIDAssignment(nextUid++);
+				entities.Add(entitiesToAdd[0].uid, entitiesToAdd[0]);
+			}
+
+			while(entitiesToRemove.Count > 0){
+				int eid = entitiesToRemove[0];
+				entities.Remove(eid);
+				entitiesToRemove.Remove(eid);
+			}
+
+			foreach(Entity e in entities.Values){
+				e._update(this, gameTime);
+			}
 			
 			
 			
 		}
 
-		internal void draw() {
+		internal void draw(GameTime gameTime) {
 			Rectangle src = new Rectangle();
 			Rectangle? srcq;
 			TileData data;
@@ -522,8 +566,13 @@ namespace LampLight {
 					}
 				}
 			}
-			
-			MouseState mState = Mouse.GetState();
+
+			foreach(Entity e in entities.Values){
+				e._draw(this, gameTime);
+			}
+
+
+
 			Point wp = new Point();
 			screenToWorld(mState.X, mState.Y, out wp.X, out wp.Y);
 			Point tp = new Point();
@@ -540,6 +589,11 @@ namespace LampLight {
 			game.spriteBatch.DrawString(game.gameFont, string.Format("Tile: {0}, {1}", tp.X, tp.Y), v, Color.White);
 			v.Y += 12;
 			game.spriteBatch.DrawString(game.gameFont, string.Format("LightUpdates: {0}", lightUpdates.Count), v, Color.White);
+		}
+
+		public void removeFromWorld(Entity e){
+			e.active = false;
+			entitiesToRemove.Add(e.uid);
 		}
 
 	}

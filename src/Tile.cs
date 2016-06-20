@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 namespace LampLight {
-	class Tile {
+	public class Tile {
 		public const int TILE_TEX_V_SEP = 14;
 		public const int TILE_TEX_H_SEP = 12;
 		public const int TILE_TEX_V_SEP_HALF = TILE_TEX_V_SEP/2;

@@ -38,3 +38,12 @@ Thumbs.db
 
 #dotCover
 *.dotCover
+
+*.dylib
+*.dll.config
+Content/bin/
+x64/
+*.dll
+*.so.0
+*.so.1
+

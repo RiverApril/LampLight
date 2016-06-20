@@ -66,7 +66,7 @@ namespace LampLight {
 			if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
 				Exit();
 
-			loadedWorld.update();
+			loadedWorld.update(gameTime);
 
 			base.Update(gameTime);
 		}
@@ -99,7 +99,7 @@ namespace LampLight {
 
 			spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied);
 
-			loadedWorld.draw();
+			loadedWorld.draw(gameTime);
 
 			spriteBatch.DrawString(gameFont, string.Format("FPS: {0}", fps.ToString("00")), new Vector2(0, 0), Color.White);
 			
