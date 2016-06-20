@@ -524,7 +524,6 @@ namespace LampLight {
 			}
 			
 			MouseState mState = Mouse.GetState();
-
 			Point wp = new Point();
 			screenToWorld(mState.X, mState.Y, out wp.X, out wp.Y);
 			Point tp = new Point();
