@@ -15,6 +15,7 @@ namespace LampLight {
 		
 		internal SpriteFont gameFont;
 		internal Texture2D textureTileAtlas;
+		internal Texture2D texturePlayer;
 
 
 		float fps = 0f;
@@ -49,8 +50,9 @@ namespace LampLight {
 		protected override void LoadContent() {
 			// Create a new SpriteBatch, which can be used to draw textures.
 			spriteBatch = new SpriteBatch(GraphicsDevice);
-			
+
 			textureTileAtlas = this.Content.Load<Texture2D>("tileAtlas");
+			texturePlayer = this.Content.Load<Texture2D>("player");
 			gameFont = this.Content.Load<SpriteFont>("gameFont");
 
 			//TODO: use this.Content to load your game content here 

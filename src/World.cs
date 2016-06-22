@@ -10,8 +10,7 @@ namespace LampLight {
 		public int width { get; private set; }
 		public int height { get; private set; }
 
-		public double viewX = 1;
-		public double viewY = 1;
+		public Vector2 view = new Vector2(1, 1);
 
 		private TileData[,] map;
 		
@@ -42,7 +41,11 @@ namespace LampLight {
 		KeyboardState kState;
 		MouseState mState;
 
+		Point lastMouseTile = new Point();
+
 		int nextUid = 1;
+
+		EntityPlayer currentPlayer;
 		
 
 		public World(LampLightGame game) {
@@ -88,7 +91,7 @@ namespace LampLight {
 
 					ym = p.Y + range;
 					for (int y = Math.Max(p.Y - range, 0); y <= Math.Min(ym, height - 1); y++) {
-						xw = (Math.Abs(y - p.Y) / 2) + range;
+						xw = Math.Abs(range - (int)((Math.Abs(y - p.Y) / 2.0) + ((y % 2==0)?0.5:0)));
 						xm = p.X + xw;
 						for (int x = Math.Max(p.X - xw, 0); x <= Math.Min(xm, width - 1); x++) {
 							map[x, y].nextLight = 0;
@@ -106,7 +109,7 @@ namespace LampLight {
 							if(ld <= range) {
 								ym = lp.Y + range;
 								for(int y = Math.Max(lp.Y - range, 0); y <= Math.Min(ym, height - 1); y++) {
-									xw = (Math.Abs(y - lp.Y) / 2) + range;
+									xw = Math.Abs(range - (int)((Math.Abs(y - lp.Y) / 2.0) + ((y % 2==0)?0.5:0)));
 									xm = lp.X + xw;
 									for(int x = Math.Max(p.X - xw, 0); x <= Math.Min(xm, width - 1); x++) {
 										map[x, y].nextLight = 0;
@@ -115,6 +118,7 @@ namespace LampLight {
 							}
 						}
 					}
+
 					for (int j = 0; j < 9; j++) {
 						int lsii = nineChunkGrid[j] + lsi;
 						if (lsii < 0 || lsii > lightSources.Count) {
@@ -132,7 +136,7 @@ namespace LampLight {
 
 					ym = p.Y + range2;
 					for (int y = Math.Max(p.Y - range2, 0); y <= Math.Min(ym, height - 1); y++) {
-						xw = (Math.Abs(y - p.Y) / 2) + range2;
+						xw = Math.Abs(range2 - (int)((Math.Abs(y - p.Y) / 2.0) + ((y % 2==0)?0.5:0)));
 						xm = p.X + xw;
 						for (int x = Math.Max(p.X - xw, 0); x <= Math.Min(xm, width - 1); x++) {
 							map[x, y].light = map[x, y].nextLight;
@@ -150,18 +154,18 @@ namespace LampLight {
 		}*/
 
 		public void screenToWorld(int sx, int sy, out int wx, out int wy) {
-			wx = sx + (int)(viewX * Tile.TILE_H_SEP);
-			wy = sy + (int)(viewY * Tile.TILE_V_SEP);
+			wx = sx + (int)(view.X * Tile.TILE_H_SEP);
+			wy = sy + (int)(view.Y * Tile.TILE_V_SEP);
 		}
 
 		public void screenToTile(int sx, int sy, out int tx, out int ty) {
-			ty = (int)(((sy - Tile.TILE_TEX_V_SEP_HALF) / Tile.TILE_V_SEP) + viewY);
-			tx = (int)(((sx) / Tile.TILE_H_SEP) + ((ty % 2==0)?-0.5:0.5) + viewX);
+			ty = (int)(((sy - Tile.TILE_TEX_V_SEP_HALF) / Tile.TILE_V_SEP) + view.Y);
+			tx = (int)(((sx) / Tile.TILE_H_SEP) + ((ty % 2==0)?-0.5:0.5) + view.X);
 		}
 
 		public void tileToScreen(int tx, int ty, out int sx, out int sy) {
-			sx = (int)((tx-viewX+((ty % 2==0)?0.5:0)) * Tile.TILE_H_SEP);
-			sy = (int)((ty - viewY) * Tile.TILE_V_SEP);
+			sx = (int)((tx-view.X+((ty % 2==0)?0.5:0)) * Tile.TILE_H_SEP);
+			sy = (int)((ty - view.Y) * Tile.TILE_V_SEP);
 		}
 
 		void prespreadLight(int x, int y) {
@@ -219,14 +223,22 @@ namespace LampLight {
 			}
 		}
 
+		public void cubeCoords(int x, int y, out int xx, out int yy, out int zz){
+			xx = x - (y + (y & 1)) / 2;
+			zz = y;
+			yy = -xx - zz;
+		}
+
 		public int hexDistance(int x1, int y1, int x2, int y2) {
-			int xx1 = x1 + y1;
-			int xx2 = x2 + y2;
-			int yy1 = y1 / 2;
-			int yy2 = y2 / 2;
-			int zz1 = -(xx1 + yy1);
-			int zz2 = -(xx2 + yy2);
-			return Math.Max(xx2 - xx1, Math.Max(yy2 - yy1, zz2 - zz1));
+			int xx1;
+			int xx2;
+			int yy1;
+			int yy2;
+			int zz1;
+			int zz2;
+			cubeCoords(x1, y1, out xx1, out yy1, out zz1);
+			cubeCoords(x2, y2, out xx2, out yy2, out zz2);
+			return Math.Max(Math.Abs(xx2 - xx1), Math.Max(Math.Abs(yy2 - yy1), Math.Abs(zz2 - zz1)));
 		}
 
 		private void updateLightSource(int x, int y) {
@@ -394,35 +406,37 @@ namespace LampLight {
 			int viewH = game.Window.ClientBounds.Height / Tile.TILE_V_SEP;
 
 			if (kState.IsKeyDown(Keys.A)) {
-				viewX -= .25;
-				if (viewX < 1) {
-					viewX = 1;
+				view.X -= .25f;
+				if (view.X < 1) {
+					view.X = 1;
 				}
 			}
 			
 			if (kState.IsKeyDown(Keys.D)) {
-				viewX += .25;
-				if (viewX > width-viewW-2) {
-					viewX = width-viewW-2;
+				view.X += .25f;
+				if (view.X > width-viewW-2) {
+					view.X = width-viewW-2;
 				}
 			}
 			
 			if (kState.IsKeyDown(Keys.W)) {
-				viewY -= .25;
-				if (viewY < 1) {
-					viewY = 1;
+				view.Y -= .25f;
+				if (view.Y < 1) {
+					view.Y = 1;
 				}
 			}
 			
 			if (kState.IsKeyDown(Keys.S)) {
-				viewY += .25;
-				if (viewY > height-viewH-2) {
-					viewY = height-viewH-2;
+				view.Y += .25f;
+				if (view.Y > height-viewH-2) {
+					view.Y = height-viewH-2;
 				}
 			}
 			int mouseTileX, mouseTileY;
+			int mouseWorldX, mouseWorldY;
 
 			screenToTile(mState.X, mState.Y, out mouseTileX, out mouseTileY);
+			screenToWorld(mState.X, mState.Y, out mouseWorldX, out mouseWorldY);
 			
 			//Console.WriteLine("Mouse tile: {0}, {1}", mouseTileX, mouseTileY);
 
@@ -436,8 +450,19 @@ namespace LampLight {
 					} else {
 						map[mouseTileX, mouseTileY].setF(Tile.tileAir.index);
 					}
+					lastMouseTile.X = mouseTileX;
+					lastMouseTile.Y = mouseTileY;
 				}
 				
+			}
+
+			if(kState.IsKeyDown(Keys.P)){
+				if(currentPlayer == null){
+					currentPlayer = new EntityPlayer(game);
+					entitiesToAdd.Add(currentPlayer);
+				}
+				currentPlayer.position.X = mouseWorldX;
+				currentPlayer.position.Y = mouseWorldY;
 			}
 
 			debugButtonDown = kState.IsKeyDown(Keys.OemTilde);
@@ -445,11 +470,11 @@ namespace LampLight {
 			
 			TileData data;
 
-			int viewR = (int)viewX + game.Window.ClientBounds.Width / Tile.TILE_H_SEP;
-			int viewB = (int)viewY + game.Window.ClientBounds.Height / Tile.TILE_V_SEP;
+			int viewR = (int)view.X + game.Window.ClientBounds.Width / Tile.TILE_H_SEP;
+			int viewB = (int)view.Y + game.Window.ClientBounds.Height / Tile.TILE_V_SEP;
 			
-			for (int y = (int)viewY - 1; y < viewB + 2; y++) {
-				for (int x = (int)viewX - 1; x < viewR + 2; x++) {
+			for (int y = (int)view.Y - 1; y < viewB + 2; y++) {
+				for (int x = (int)view.X - 1; x < viewR + 2; x++) {
 					data = map[x, y];
 					if (data.updateFlags != TileData.UPDATE_NONE) {
 						if ((data.updateFlags & TileData.UPDATE_TILE) != 0) {
@@ -480,6 +505,7 @@ namespace LampLight {
 			while(entitiesToAdd.Count > 0){
 				entitiesToAdd[0].initalUIDAssignment(nextUid++);
 				entities.Add(entitiesToAdd[0].uid, entitiesToAdd[0]);
+				entitiesToAdd.RemoveAt(0);
 			}
 
 			while(entitiesToRemove.Count > 0){
@@ -504,16 +530,16 @@ namespace LampLight {
 			Tile tileB;
 			Rectangle dest = new Rectangle();
 			Color color = new Color(255, 255, 255, 255);
-			int viewR = (int)viewX + game.Window.ClientBounds.Width / Tile.TILE_H_SEP;
-			int viewB = (int)viewY + game.Window.ClientBounds.Height / Tile.TILE_V_SEP;
+			int viewR = (int)view.X + game.Window.ClientBounds.Width / Tile.TILE_H_SEP;
+			int viewB = (int)view.Y + game.Window.ClientBounds.Height / Tile.TILE_V_SEP;
 
-			for (int y = (int)viewY - 1; y < viewB + 2; y++) {
-				dest.Y = (int)((y - viewY) * Tile.TILE_V_SEP);
-				for (int x = (int)viewX - 1; x < viewR + 2; x++) {
+			for (int y = (int)view.Y - 1; y < viewB + 2; y++) {
+				dest.Y = (int)((y - view.Y) * Tile.TILE_V_SEP);
+				for (int x = (int)view.X - 1; x < viewR + 2; x++) {
 					data = map[x, y];
 					tileF = Tile.tiles[data.fIndex];
 					
-					dest.X = (int)((x-viewX+((y % 2==0)?0.5:0)) * Tile.TILE_H_SEP);
+					dest.X = (int)((x-view.X+((y % 2==0)?0.5:0)) * Tile.TILE_H_SEP);
 
 					if (data.fTransparent()) {
 						tileB = Tile.tiles[data.bIndex];
@@ -584,11 +610,18 @@ namespace LampLight {
 
 			Vector2 v = mState.Position.ToVector2();
 
+			int xx, yy, zz;
+			cubeCoords(tp.X, tp.Y, out xx, out yy, out zz);
+
 			game.spriteBatch.DrawString(game.gameFont, string.Format("World: {0}, {1}", wp.X, wp.Y), v, Color.White);
 			v.Y += 12;
 			game.spriteBatch.DrawString(game.gameFont, string.Format("Tile: {0}, {1}", tp.X, tp.Y), v, Color.White);
 			v.Y += 12;
 			game.spriteBatch.DrawString(game.gameFont, string.Format("LightUpdates: {0}", lightUpdates.Count), v, Color.White);
+			v.Y += 12;
+			game.spriteBatch.DrawString(game.gameFont, string.Format("Hex Dis: {0}", hexDistance(tp.X, tp.Y, lastMouseTile.X, lastMouseTile.Y)), v, Color.White);
+			v.Y += 12;
+			game.spriteBatch.DrawString(game.gameFont, string.Format("Cube Coords: {0}, {1}, {2}", xx, yy, zz), v, Color.White);
 		}
 
 		public void removeFromWorld(Entity e){

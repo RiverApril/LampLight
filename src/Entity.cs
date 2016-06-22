@@ -11,7 +11,7 @@ namespace LampLight {
 		public bool active;
 		protected LampLightGame game;
 
-		public Vector2 position { get; protected set;}
+		public Vector2 position;
 		public Vector2 hSize { get; protected set;}
 
 		public Entity(LampLightGame game){
